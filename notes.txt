@@ -1,0 +1,355 @@
+so i need to 
+on clicking on a lil sphere
+light it up until clicked off
+and pop up a little box with information - text mainly, maybe a read more button for a panel?
+the box needs to be location dependant on the sphere clicked, but rotation dependant on the camera.
+When clicked away, the text object is deleted 
+
+can use the lookat 
+
+
+
+so:
+
+on hover over of a sphere:
+cache/read json for the little box
+
+
+
+on click on a sphere:
+change sphere surface to lit up material;
+
+
+on hover off sphere:
+    if sphere highlighted, do nothing
+    if sphere not highlighted, clear highlighter cache
+
+
+
+okay, so on clicking on an unopened sphere, the sphere pops open & shows its paths forward
+on clicking on a non linked sphere, or a popped sphere, the camera zooms in until clicked off, and a pop up panel provides information
+when this happens, the sphere lights up and glows
+you can navigate purely from the close up, saving going out and in every time
+you cant close popped spheres, or unlight lit spheres
+
+
+
+okay, so i can use this method where i make a css canvas inside the scene, this is exampled in https://threejs.org/examples/#webgl_multiple_canvases_circle 
+basically the aim is to make 
+wait nevermind
+researched that and it was a dud, it is referencing the threejs scene inside 5 small canvases that are defined using css and html, not the other way around!
+i need it to be a css canvas displayed, perhaps as a texture, on a three 3d scene, and for it to pin to the camera
+
+so i found a potential avenue, there is this:https://stackoverflow.com/questions/64423333/how-to-place-a-2d-text-over-a-three-js-scene thread
+that suggests using either css 2d label, which is like okay, but it means that the text will clip over objects at all times, and have fixed size
+or sprites, which is a 2d surface that always points to the camera, a lot more like what i was looking for!
+it acts as an element of the 3d scene, kind of like a flat image instanced at a point
+the main question then becomes how to place information/ a css panel on a sprite
+
+okidoki, so there is a texture capability called CanvasTexture, which takes a canvas element, and maps it onto the object.
+
+so implimentation is something like
+
+
+on click:
+create sprite with a name from clicked on blob ------------------------------------------------------const sprite_name = new THREE.Sprite(new THREE.SpriteMaterial({color: 'a_color',}))
+-----------------------------------------------------------------------------------------------------sprite_name.position.set(position_in_3D_form:x,y,z)
+-----------------------------------------------------------------------------------------------------sprite_name.scale.set(scale_in_vectorform(xyz?))
+-----------------------------------------------------------------------------------------------------group.add( sprite_name)
+get canvas (html element) from the blob information
+map the canvas as a texture onto the sprite
+create a mesh of the texture and the geometry (sprite) in scene at the centre of the point geometry
+
+off click:
+delete sprite from scene
+
+sprite details:
+----------------------sizeAttenuation: false -----------------------sets size to stay constant
+----------------------sprite3.center.set ---------------------------sets where the rotations or translations will occur from
+----------------------sprite3.material.rotation --------------------rotates the sprite material some amount - not useful for text and visuals
+
+
+okay, okay okay, so it looks like the sprite is not an object/mesh, it is literally just instancing the texture into the 3d space.
+it can be affected size wise, but doesn't /have/ to be, this is where sizeAttenuation is useful
+
+so CanvasTexture literally just takes the HTML file, converts it into a canvas, and presents it as a resource for objects to use?
+how do that?
+
+
+
++++++++++++++++thinking+++++++++++++++++++++++
+Sprite( material : Material )
+
+<canvas id="drawing-canvas" height="128" width="128"></canvas>    
+const drawingCanvas = document.getElementById( 'drawing-canvas' );    
+material.map = new THREE.CanvasTexture( drawingCanvas );
+    \--> so this creates a new canvas texture called material that uses the const set up before
+    \--> mine is a bit simpler than this, its just grabbing a fairly static webpage, and then placeing it into the canvastexture, so it could be like
+            <canvas id=("display"+point_id) height="theFixedHeightFromFileIGuess" width="theFixedWidth">   </canvas>-----------------maybe........
+
+            const drawingCanvas = 
++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+okay, so now this section is some solid research:
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+what if i did it all in the sprite
+::::::::Try1::::::::::::::::::::::::::::::::::::::
+const loader = new THREE.TextureLoader();
+
+cibst nateruak = new THREE.
+
+const sprite_name = new THREE.Sprite(new THREE.SpriteMaterial({-color: 'a_color',+material}))
+::::::::End:::::::::::::::::::::::::::::::::::::::
+
+
+*************************************************
+::::::::EXAMPLE:::::::::::::::::::::::::::::::::::
+const loader = new THREE.TextureLoader();                   //this is a generic texture loader that can be used for multiple textures - wont work for me, need to fix to make canvas
+
+const a_material = new THREE.MeshBasicMaterial({            //this creates a material with following properties:
+-  color: 0xFF8844,                                         //this is the 'base' colour, it will be ignored
++  map: loader.load('resources/images/wall.jpg'),           //this is the loader summoning from the resource folder the texture chosen, then loading it as a map on the material
+});
+::::::::::::::::::::::::::::::::::::::::::::::::::
+**************************************************
+
+okay, so i have the options of
+----------rendering the pages as images in PNG format so they are transparent, this would functionally work with the example, then it is just applying
+the material to the sprite
+----------or, I try the canvas as dynamic element, which uses 
+
+okay, ive found one that is explitly about "billboards", which applies a canvas texture to something that always faces the camera, exactly what ill need
+
+
+*************************************************
+::::::::EXAMPLE:::::::::::::::::::::::::::::::::::
+    function makePerson(x, labelWidth, size, name, color) {
+      const canvas = makeLabelCanvas(labelWidth, size, name);
+      const texture = new THREE.CanvasTexture(canvas);          ###### this is the canvastexture being used like before, and it will be where i put the page data,
+      // because our canvas is likely not a power of 2
+      // in both dimensions set the filtering appropriately.
+      texture.minFilter = THREE.LinearFilter;                   ###### unsure yet, but i think it is just sizing the texture correctly
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+     
+      const labelMaterial = new THREE.SpriteMaterial({          ###### so we are setting the label material to be a sprite material, not a mesh material
+        map: texture,                                           ###### and we are mapping it like normal
+        transparent: true,                                      ###### and making the background transparent
+      });
+     
+      const root = new THREE.Object3D();
+      root.position.x = x;
+     
+      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+      root.add(body);
+      body.position.y = bodyHeight / 2;
+     
+      const head = new THREE.Mesh(headGeometry, bodyMaterial);
+      root.add(head);
+      head.position.y = bodyHeight + headRadius * 1.1;
+     
+      const label = new THREE.Sprite(labelMaterial);
+      root.add(label);
+      label.position.y = bodyHeight * 4 / 5;
+      label.position.z = bodyRadiusTop * 1.01;
+
+::::::::::::::::::::::::::::::::::::::::::::::::::
+**************************************************
+
+if there is a moving element, we have a decision
+
+if the flat file contains moving elements, then we can use the canvas texture and billboard method, as above,
+but if we need to draw into the texture, like we have 3d elements inside the projection, we are better off using RenderTarget
+
+RenderTarget
+------------
+RenderTarget is like another canvas in the 3d space, so we essentially drop a render into a render
+it functionally is similar to normal rendering, just it is projecting a cube instanced
+i think for the time being it is not necessary since it is not useful for the label making.
+The labels can use images and videos in the html/css that they are referencing. This should save on uneccesary complications of object within object.
+
+For more information/ potentially interactable models, I could have a side bar that has interactivity, however this would only need to have a seperate canvas drawn in the panel,
+not into the scene itself.
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+okay then, now it is time to look at the option of doing it for my specific case,
+this basically just needs me to find out how to grab an object id from 3d-force-graph
+and to figure out a way to take the id, and apply it to the label request
+
+in the example the main difference is that they are making the labels at the same time as everything elements as everything else 
+this is different to me since i want to have the labels appear when appropriate to do so.
+so instead of having a "makeperson" function, i need a "makelabel" function that gets the data of the clicked on element.
+
+
+
+
+all our main setup as usual inc controls, scene etc 
+
+
+
+function makeLabelCanvas(baseWidth, size, name) {
+    const borderSize = 2;                                                   //sets a border size, again, maybe not useful for me since it will be white on black or transparent.
+    const ctx = document.createElement('canvas').getContext('2d');          //ctx is short for canvas texture, just a defined element, not a technical term lmao
+    const font =  `${size}px bold sans-serif`;
+    ctx.font = font;                                                        //so we just made a canvas, made a font, applied the font to the canvas
+    // measure how long the name will be
+    const textWidth = ctx.measureText(name).width;                          //this measures how long the text is so it can be scaled, probs wont be needed for me
+
+    const doubleBorderSize = borderSize * 2;
+    const width = baseWidth + doubleBorderSize;
+    const height = size + doubleBorderSize;
+    ctx.canvas.width = width;
+    ctx.canvas.height = height;
+
+    // need to set font again after resizing canvas
+    ctx.font = font;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';                                               // i think this is because the resizing would take the text to the edge of the canvas again
+
+    ctx.fillStyle = 'blue';
+    ctx.fillRect(0, 0, width, height);                                      //colour for the box
+
+    // scale to fit but don't stretch
+    const scaleFactor = Math.min(1, baseWidth / textWidth);
+    ctx.translate(width / 2, height / 2);
+    ctx.scale(scaleFactor, 1);
+    ctx.fillStyle = 'white';
+    ctx.fillText(name, 0, 0);                                               //this seems to be the text infill?
+
+    return ctx.canvas;                                                      //and finishing the function
+  }
+
+  function makeSprite(x, labelWidth, size, name, color) {                   //so i think this will looks something more like ...(dataref1,dataref2,dataref3,size,name,color) where all this is from the node
+    const canvas = makeLabelCanvas(labelWidth, size, name);
+    const texture = new THREE.CanvasTexture(canvas);
+    // because our canvas is likely not a power of 2
+    // in both dimensions set the filtering appropriately.
+    texture.minFilter = THREE.LinearFilter;         //? do i need?
+    texture.wrapS = THREE.ClampToEdgeWrapping;      //?
+    texture.wrapT = THREE.ClampToEdgeWrapping;      //?
+
+    const labelMaterial = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+    });
+
+    const root = new THREE.Object3D();
+    root.position.x = x;                                                    //here looks like where i define the location in the scene - i will need an extra variable for y, but this will be taken from vasturiano
+    root.position.y = y;
+
+    // if units are meters then 0.01 here makes size
+    // of the label into centimeters.
+    const labelBaseScale = 0.01;
+    const label = new THREE.Sprite(labelMaterial);
+    root.add(label);
+    label.position.y = root.position.y + (amount_to_looks_right) * labelBaseScale;
+
+    label.scale.x = canvas.width  * labelBaseScale;
+    label.scale.y = canvas.height * labelBaseScale;
+
+    scene.add(root);
+    return root;
+  }
+
+function 
+    const canvas = makeLabelCanvas(labelWidth,size,name);
+    const texture = new THREE.CanvasTexture(canvas);
+
+
+        const labelMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        transparent:true,
+    });
+
+
+
+
+NOTE: the vasturiano graph uses a different name (not scene) - might be due to clashes when using the package's library.
+
+
+
+
+
+
+
+
+start 
+get the data from json file saying what all the nodes are and what their relationships are
+
+set up functions not included in vasturiano's work
+    label canvas function
+    sprite maker function including the person
+
+
+when sphere is clicked on:
+    if sphere unopened:
+        pop the sphere if it needs to be opened (from vasturiano's examples)
+    else:
+        focus on sphere (vasturiano)
+        light up sphere & show links (vasturiano)
+        run create sprite function
+
+
+
+so it looks like it is
+
+click on a popped node, 
+    the node texture changes from dull to radiant/
+    the connection glower glows the connections
+    the camera focuser focuses on the node
+    the node has label data, 
+    the canvas maker makes a canvas
+    The sprite maker makes a sprite with the canvas on
+        and kicks it out to the scene
+
+click off the node,
+    the click off node function runs:
+        deletes the sprite
+        deletes the canvas
+        stops the focusing
+        turns off connection glow
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+
+import * from THREE
+import the vasturiano stuff in its way
+
+
+
+
+
+++++++++++ set up functions ++++++++++
+startup functions for other elements, largely from vasturiano
+++++++++++++++++++++++++++++++++++++++
+
+graph function
+
+canvas for sprite function
+
+sprite maker function
+
+node on function
+    the node texture changes from dull to radiant/
+    the connection glower glows the connections - use linkMaterial/
+    the camera focuser focuses on the node/
+    the node has label data, /                      //label data references another dataset for context probs, shouldn't be too bad!
+    the canvas maker makes a canvas /
+    The sprite maker makes a sprite with the canvas on/
+        and kicks it out to the scene/
+
+node off function
+    deletes the sprite
+    deletes the canvas
+    stops the focusing
+    turns off connection glow
+
+node drag function
+
+
+
