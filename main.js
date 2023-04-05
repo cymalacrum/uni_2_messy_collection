@@ -1,12 +1,12 @@
 import './style.css'
 
-import * as THREE from 'three'
+//import * as THREE from 'three'
 import ForceGraph3D from '3d-force-graph';
 
 // Random tree
-//const N = 400;
+//const N = 6;
 //const gData = {
-
+// const nods = {
 //   nodes: [...Array(N).keys()].map(i => ({ id: i })),
 //   links: [...Array(N).keys()]
 //     .filter(id => id)
@@ -14,13 +14,14 @@ import ForceGraph3D from '3d-force-graph';
 //       source: id,
 //       target: Math.round(Math.random() * (id-1))
 //     }))
-// };
+//  };
+
 // const datum = {jsonUrl('nod.json')}
 
-// // cross-link node objects
-// links.forEach(link => {
-//   const a = nodes[link.source];
-//   const b = nodes[link.target];
+// cross-link node objects
+// Graph.links.forEach(link => {
+//   const a = nods.nodes[link.source];
+//   const b = nods.nodes[link.target];
 //   !a.neighbors && (a.neighbors = []);
 //   !b.neighbors && (b.neighbors = []);
 //   a.neighbors.push(b);
@@ -35,13 +36,7 @@ import ForceGraph3D from '3d-force-graph';
 //above elemements not necessary when introducing json of data.
 
 //let oldpos = null
-const highlightNodes = new Set();
-const highlightLinks = new Set();
-const nodeinfo = new Set();
-const clickednodes = new Set();
-let hoverNode = null;
-let selectedNodes = new Set();
-let oldpos;
+
 
 /*
 function writevector3(_x,_y,_z){
@@ -52,11 +47,37 @@ writevector3(0,0,-1)
 
 //vector.applyQuaternion(THREE.Camera.quaternion);
 
+fetch('nod.json')
+.then (response => response.json())
+.then(json => {
+  console.log(json)
+  json.links.forEach(link => {
+    const a = json.nodes[link.source];
+    console.log(a)
+    const b = json.nodes[link.target];
+    console.log(b)
+    !a.neighbors && (a.neighbors = []);
+    !b.neighbors && (b.neighbors = []);
+    a.neighbors.push(b);
+    b.neighbors.push(a);
 
+    !a.links && (a.links = []);
+    !b.links && (b.links = []);
+    a.links.push(link);
+    b.links.push(link);
+  });
 
-const Graph = ForceGraph3D()
+  const highlightNodes = new Set();
+  const highlightLinks = new Set();
+  const nodeinfo = new Set();
+  const clickednodes = new Set();
+  let hoverNode = null;
+  let selectedNodes = new Set();
+  let oldpos;
+
+  const Graph = ForceGraph3D()
   (document.getElementById('3d-graph'))
-    .jsonUrl('nod.json')
+    .graphData(json)
     .nodeLabel('id')
     .nodeRelSize(6)
     .nodeColor(node => selectedNodes.has(node) ? node === hoverNode ? 'rgb(255,0,0,1)' : 'rgba(255,160,0,0.8)' : highlightNodes.has(node) ? 'yellow' : 'rgba(0,255,255,0.6)')
@@ -69,7 +90,7 @@ const Graph = ForceGraph3D()
       !untoggle && selectedNodes.add(node);
       Graph.nodeColor(Graph.nodeColor()); // update color of selected nodes - can change it to texture or visual effect too
     })
-    .onNodeClick((node, event) => {
+    .onNodeClick(node => {
       if ((!node && !highlightNodes.size) || (node && hoverNode === node)) return;
       highlightNodes.clear();
       highlightLinks.clear();
@@ -77,6 +98,7 @@ const Graph = ForceGraph3D()
       if (node) {
         highlightNodes.add(node);
         nodeinfo.add(node);
+
         node.neighbors.forEach(neighbor => highlightNodes.add(neighbor));
         node.links.forEach(link => highlightLinks.add(link));
       }
@@ -132,12 +154,14 @@ const Graph = ForceGraph3D()
           .forEach(node => ['x', 'y', 'z'].forEach(coord => node[`f${coord}`] = undefined)); // unfix controlled nodes
       }
     });
-console.log(Graph.cameraPosition())
+  console.log(Graph.cameraPosition())
 
-function updateHighlight() {
+  function updateHighlight() {
   // trigger update of highlighted objects in scene
   Graph
     .nodeColor(Graph.nodeColor())
     .linkWidth(Graph.linkWidth())
     .linkDirectionalParticles(Graph.linkDirectionalParticles())
   }
+
+})
